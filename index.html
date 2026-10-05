@@ -83,7 +83,8 @@
       const targetTime = Date.now() + DURATION * 1000;
 
       timerId = setInterval(() => {
-        const remaining = Math.round((targetTime - Date.now()) / 1000);
+        // ceil: 00:00 erst nach vollen 60 s, nicht 0,5 s zu früh
+        const remaining = Math.ceil((targetTime - Date.now()) / 1000);
         if (remaining <= 0) {
           clearInterval(timerId);
           timerId = null;
@@ -101,6 +102,8 @@
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
+        // Gedrückt gehaltene Taste ignorieren (sonst Start + sofortiger Reset)
+        if (e.repeat) return;
         if (timerId === null) {
           // Falls noch bei 00:00 (vor dem automatischen Reset), erst zurücksetzen
           if (timeLeft === 0) resetTimer();
