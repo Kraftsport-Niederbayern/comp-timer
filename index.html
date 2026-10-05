@@ -4,6 +4,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>KDK Wettkampf-Timer</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -17,7 +18,12 @@
       height: 100vh;
       overflow: hidden;
       user-select: none;
+      -webkit-user-select: none;
       position: relative;
+      cursor: pointer;
+      /* Kein Doppeltipp-Zoom auf Tablets */
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
     }
     #timer {
       font-size: 34vw;
@@ -25,7 +31,26 @@
       line-height: 1;
       letter-spacing: -2px;
       text-shadow: 0 0 35px rgba(0, 255, 102, 0.25);
+      transition: color 0.15s, text-shadow 0.15s;
     }
+    /* Bereit (nicht gestartet): gedimmt, damit "läuft" auf einen Blick erkennbar ist */
+    #timer.idle { color: #1d6b3f; text-shadow: none; }
+    #fullscreen {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: none;
+      border: 1px solid #262626;
+      border-radius: 6px;
+      color: #4a4a4a;
+      font-size: 1.4rem;
+      line-height: 1;
+      width: 44px;
+      height: 44px;
+      cursor: pointer;
+    }
+    #fullscreen:hover { color: #888; border-color: #444; }
+    :fullscreen #fullscreen { display: none; }
     #status {
       position: absolute;
       bottom: 12px;
@@ -46,7 +71,8 @@
 </head>
 <body>
   <div id="timer">01:00</div>
-  <div id="status">[ Enter ] Start / Reset</div>
+  <button id="fullscreen" title="Vollbild (F)" aria-label="Vollbild">⛶</button>
+  <div id="status">[ Enter / Leertaste / Tippen ] Start / Reset &nbsp;·&nbsp; [ F ] Vollbild</div>
 
   <script>
     const DURATION = 60;
@@ -62,7 +88,9 @@
       timerEl.textContent = `${m}:${s}`;
       timerEl.className = '';
 
-      if (timeLeft === 0) {
+      if (timerId === null && timeLeft === DURATION) {
+        timerEl.classList.add('idle');
+      } else if (timeLeft === 0) {
         timerEl.classList.add('danger', 'blink');
       } else if (timeLeft <= 10) {
         timerEl.classList.add('warning');
@@ -97,6 +125,34 @@
           renderDisplay();
         }
       }, 100);
+      // Sofort hell anzeigen, damit der Start sichtbar quittiert wird
+      renderDisplay();
+    }
+
+    function toggleTimer() {
+      if (timerId === null) {
+        // Falls noch bei 00:00 (vor dem automatischen Reset), erst zurücksetzen
+        if (timeLeft === 0) resetTimer();
+        startTimer();
+      } else {
+        // Vorzeitiger Abbruch (z. B. Hantel herausgehoben) -> sofort 01:00
+        resetTimer();
+      }
+    }
+
+    // Vollbild (inkl. webkit-Präfix für ältere Safari/iPad)
+    const fsButton = document.getElementById('fullscreen');
+    const root = document.documentElement;
+    const canFullscreen = !!(root.requestFullscreen || root.webkitRequestFullscreen);
+    if (!canFullscreen) fsButton.style.display = 'none';
+
+    function toggleFullscreen() {
+      if (!canFullscreen) return;
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      } else {
+        (root.requestFullscreen || root.webkitRequestFullscreen).call(root);
+      }
     }
 
     // Bildschirm wach halten, solange die Seite sichtbar ist
@@ -117,22 +173,33 @@
     document.addEventListener('visibilitychange', requestWakeLock);
     requestWakeLock();
 
+    // Enter, Leertaste und die Tasten, die Presenter-Clicker senden
+    const TOGGLE_KEYS = ['Enter', ' ', 'PageDown', 'PageUp', 'ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp'];
+
     window.addEventListener('keydown', (e) => {
       requestWakeLock();
-      if (e.key === 'Enter') {
+      if (TOGGLE_KEYS.includes(e.key)) {
         e.preventDefault();
         // Gedrückt gehaltene Taste ignorieren (sonst Start + sofortiger Reset)
         if (e.repeat) return;
-        if (timerId === null) {
-          // Falls noch bei 00:00 (vor dem automatischen Reset), erst zurücksetzen
-          if (timeLeft === 0) resetTimer();
-          startTimer();
-        } else {
-          // Vorzeitiger Abbruch (z. B. Hantel herausgehoben) -> sofort 01:00
-          resetTimer();
-        }
+        toggleTimer();
+      } else if (e.key === 'f' || e.key === 'F') {
+        toggleFullscreen();
       }
     });
+
+    // Tippen / Klicken irgendwo auf dem Bildschirm (außer auf den Vollbild-Button)
+    document.body.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || e.target === fsButton) return;
+      requestWakeLock();
+      toggleTimer();
+    });
+
+    fsButton.addEventListener('click', toggleFullscreen);
+    // Fokus nicht auf dem Button lassen, sonst löst Enter/Leertaste ihn aus
+    fsButton.addEventListener('focus', () => fsButton.blur());
+
+    renderDisplay();
   </script>
 </body>
 </html>
