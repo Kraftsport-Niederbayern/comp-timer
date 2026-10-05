@@ -99,7 +99,26 @@
       }, 100);
     }
 
+    // Bildschirm wach halten, solange die Seite sichtbar ist
+    let wakeLock = null;
+
+    async function requestWakeLock() {
+      if (!('wakeLock' in navigator) || wakeLock || document.visibilityState !== 'visible') return;
+      try {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      } catch (err) {
+        // z. B. Akkusparmodus oder fehlende Nutzerinteraktion (Safari) -> beim nächsten Tastendruck erneut
+        wakeLock = null;
+      }
+    }
+
+    // Browser geben den Lock frei, wenn der Tab verdeckt wird -> beim Zurückkehren neu anfordern
+    document.addEventListener('visibilitychange', requestWakeLock);
+    requestWakeLock();
+
     window.addEventListener('keydown', (e) => {
+      requestWakeLock();
       if (e.key === 'Enter') {
         e.preventDefault();
         // Gedrückt gehaltene Taste ignorieren (sonst Start + sofortiger Reset)
