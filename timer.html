@@ -1,0 +1,118 @@
+
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>KDK Wettkampf-Timer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #000000;
+      color: #00ff66;
+      font-family: "Consolas", "Courier New", monospace;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      overflow: hidden;
+      user-select: none;
+      position: relative;
+    }
+    #timer {
+      font-size: 34vw;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -2px;
+      text-shadow: 0 0 35px rgba(0, 255, 102, 0.25);
+    }
+    #status {
+      position: absolute;
+      bottom: 12px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 0.8rem;
+      color: #383838;
+      font-family: system-ui, -apple-system, sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+    .warning { color: #ffbb00 !important; text-shadow: 0 0 35px rgba(255, 187, 0, 0.3) !important; }
+    .danger { color: #ff3333 !important; text-shadow: 0 0 35px rgba(255, 51, 51, 0.4) !important; }
+    .blink { animation: flash 0.4s infinite alternate; }
+    @keyframes flash { from { opacity: 1; } to { opacity: 0.2; } }
+  </style>
+</head>
+<body>
+  <div id="timer">01:00</div>
+  <div id="status">[ Enter ] Start / Reset</div>
+
+  <script>
+    const DURATION = 60;
+    let timeLeft = DURATION;
+    let timerId = null;
+    let autoResetTimeout = null;
+
+    const timerEl = document.getElementById('timer');
+
+    function renderDisplay() {
+      const m = String(Math.floor(timeLeft / 60)).padStart(2, '0');
+      const s = String(timeLeft % 60).padStart(2, '0');
+      timerEl.textContent = `${m}:${s}`;
+      timerEl.className = '';
+
+      if (timeLeft === 0) {
+        timerEl.classList.add('danger', 'blink');
+      } else if (timeLeft <= 10) {
+        timerEl.classList.add('warning');
+      }
+    }
+
+    function resetTimer() {
+      clearInterval(timerId);
+      clearTimeout(autoResetTimeout);
+      timerId = null;
+      autoResetTimeout = null;
+      timeLeft = DURATION;
+      renderDisplay();
+    }
+
+    function startTimer() {
+      clearTimeout(autoResetTimeout);
+      const targetTime = Date.now() + DURATION * 1000;
+
+      timerId = setInterval(() => {
+        const remaining = Math.round((targetTime - Date.now()) / 1000);
+        if (remaining <= 0) {
+          clearInterval(timerId);
+          timerId = null;
+          timeLeft = 0;
+          renderDisplay();
+          // Springt nach Ablauf nach 3 Sekunden automatisch auf 01:00 zurück
+          autoResetTimeout = setTimeout(resetTimer, 3000);
+        } else {
+          timeLeft = remaining;
+          renderDisplay();
+        }
+      }, 100);
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (timerId === null) {
+          // Falls noch bei 00:00 (vor dem automatischen Reset), erst zurücksetzen
+          if (timeLeft === 0) resetTimer();
+          startTimer();
+        } else {
+          // Vorzeitiger Abbruch (z. B. Hantel herausgehoben) -> sofort 01:00
+          resetTimer();
+        }
+      }
+    });
+  </script>
+</body>
+</html>
+
+
